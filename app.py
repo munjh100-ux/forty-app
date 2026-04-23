@@ -28,27 +28,38 @@ st.markdown("""
     .match-card:hover { border-color: #6C63FF; transform: translateY(-5px); }
     .strength-tag { color: #2E7D32; font-weight: bold; font-size: 0.9rem; }
     .weakness-tag { color: #D32F2F; font-weight: bold; font-size: 0.9rem; }
+    
+    /* 버튼 스타일 커스텀 */
+    div.stButton > button:first-child {
+        background-color: #ffffff;
+        color: #333;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        height: 60px;
+        font-weight: bold;
+        transition: 0.2s;
+    }
+    div.stButton > button:hover {
+        border-color: #6C63FF;
+        color: #6C63FF;
+        background-color: #f0efff;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. 코어 엔진 (V4.7) ---
-class FortyEngineV47:
+# --- 2. 코어 엔진 (V4.8) ---
+class FortyEngineV48:
     def __init__(self):
         self.clusters_x = ["INF", "INT", "ENF", "ENT", "ISJ", "ISP", "ESJ", "ESP"]
-        
-        # 성격 군집 간 상보적 파트너 맵 (심리학적 반대 성향)
         self.match_logic = {
             "INF": "ENT", "ENT": "INF", "INT": "ENF", "ENF": "INT",
             "ISJ": "ESP", "ESP": "ISJ", "ISP": "ESJ", "ESJ": "ISP"
         }
-
-        # 40가지 페르소나 데이터베이스
-        # 구조: [극우/보수성향높음 -> 극좌/진보성향높음] 순서 5단계
         self.db = {
             "ENT": [
                 {"title": "강철의 지배자", "s": "압도적인 리더십과 위기 돌파력", "w": "가끔 속도가 너무 빨라 팀원들이 숨차 함"},
                 {"title": "냉철한 경영자", "s": "효율을 극대화하는 데이터 기반 결정", "w": "사람의 마음을 숫자로만 판단하려는 경향"},
-                {"title": "실용적 전략가", "s": "이념보다 실리를 택하는 천재적 협상가", "w": "상황에 따라 입장이 바뀌는 유연함(이라 쓰고 변덕)"},
+                {"title": "실용적 전략가", "s": "이념보다 실리를 택하는 천재적 협상가", "w": "상황에 따라 입장이 바뀌는 유연함"},
                 {"title": "변화의 설계자", "s": "논리적 근거로 무장한 시스템 개혁가", "w": "비판이 너무 날카로워 스스로 지칠 때가 있음"},
                 {"title": "급진적 기획자", "s": "기존 질서를 뒤엎는 파괴적 창조성", "w": "브레이크 없는 탱크처럼 전진해 주변을 놀래킴"}
             ],
@@ -137,7 +148,7 @@ class FortyEngineV47:
             "avg_time": np.mean(list(response_times.values()))
         }
 
-# --- 3. 문항 데이터 (최종 통합) ---
+# --- 3. 문항 데이터 ---
 QUESTIONS = [
     {"id": "q01", "text": "나는 처음 보는 사람들과 가벼운 대화를 나누는 것이 즐겁다."},
     {"id": "q02", "text": "기업에 대한 법인세 인상은 국가 경제 활력을 떨어뜨리는 행위이다."},
@@ -183,7 +194,7 @@ QUESTIONS = [
 
 # --- 4. 메인 애플리케이션 ---
 def main():
-    st.set_page_config(page_title="Forty : Persona discovery", page_icon="🧩")
+    st.set_page_config(page_title="Forty : Persona Discovery", page_icon="🧩")
 
     if 'step' not in st.session_state: st.session_state.step = 'intro'
     if 'current_q' not in st.session_state: st.session_state.current_q = 0
@@ -205,23 +216,41 @@ def main():
         total_q = len(QUESTIONS)
         st.progress(q_idx / total_q)
         q = QUESTIONS[q_idx]
-        st.markdown(f"#### Q{q_idx+1}. {q['text']}")
-        ans = st.select_slider("응답:", options=[1,2,3,4,5,6], value=3,
-                               format_func=lambda x: {1:"전혀 아님", 2:"아님", 3:"보통", 4:"약간", 5:"그렇다", 6:"매우 그렇다"}[x])
+        
+        st.markdown(f"<p style='color:gray; font-size:0.9rem;'>문항 {q_idx+1} / {total_q}</p>", unsafe_allow_html=True)
+        st.subheader(q['text'])
+        st.write("---")
 
-        if st.button("다음으로 ➡️", type="primary", use_container_width=True):
-            st.session_state.times[q['id']] = time.time() - st.session_state.q_start
-            st.session_state.answers[q['id']] = ans
-            if q_idx + 1 < total_q:
-                st.session_state.current_q += 1
+        # 6개의 응답 버튼 구성
+        labels = ["전혀 아님", "아님", "보통", "약간", "그렇다", "매우 그렇다"]
+        
+        # 버튼을 2열 3행 혹은 3열 2행으로 배치 (모바일 가독성 고려)
+        cols = st.columns(3)
+        for i, label in enumerate(labels):
+            with cols[i % 3]:
+                if st.button(label, use_container_width=True, key=f"btn_{q_idx}_{i}"):
+                    # 응답 시간 및 값 저장
+                    st.session_state.times[q['id']] = time.time() - st.session_state.q_start
+                    st.session_state.answers[q['id']] = i + 1 # 1점 ~ 6점
+                    
+                    # 다음 문항으로 이동
+                    if q_idx + 1 < total_q:
+                        st.session_state.current_q += 1
+                        st.session_state.q_start = time.time()
+                        st.rerun()
+                    else:
+                        st.session_state.step = 'result'
+                        st.rerun()
+        
+        st.write("")
+        if q_idx > 0:
+            if st.button("⬅️ 이전 문항으로", use_container_width=False):
+                st.session_state.current_q -= 1
                 st.session_state.q_start = time.time()
-                st.rerun()
-            else:
-                st.session_state.step = 'result'
                 st.rerun()
 
     elif st.session_state.step == 'result':
-        engine = FortyEngineV47()
+        engine = FortyEngineV48()
         res = engine.analyze(st.session_state.answers, st.session_state.times)
         
         st.balloons()
